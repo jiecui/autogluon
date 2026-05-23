@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: autogluon
+#     display_name: tsf-fm
 #     language: python
 #     name: python3
 # ---
@@ -32,8 +32,8 @@
 #
 # :::
 
-# %% id="n6eQ3J1iWwQE" tags=["remove-cell", "skip"]
-# We use uv for faster installation
+# %% [raw]
+# # We use uv for faster installation
 # !pip install uv
 # !uv pip install -q autogluon.timeseries --system
 # !uv pip uninstall -q torchaudio torchvision torchtext --system # fix incompatible package versions on Colab
@@ -42,7 +42,7 @@
 # use only one GPU if there are multiple GPUs available, to avoid OOM issues
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 # %% [markdown] id="xV7UtCFgWwQE"
 # ## Getting started with Chronos-2
@@ -90,14 +90,14 @@ from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor
 
 # %% id="E6Z0NGjBWwQG" outputId="4bc73bfb-218d-4b75-f7cb-3a089fc88465"
 data_csv_url = "https://autogluon.s3.amazonaws.com/datasets/timeseries/australian_electricity_subset/test.csv"
-data_df = pd.read_csv(data_csv_url)
-print(data_df.head())
-print("number of unique time series:", data_df["item_id"].nunique())
+# data_df = pd.read_csv(data_csv_url)
+# print(data_df.head())
 
-# data = TimeSeriesDataFrame.from_path(data_csv_url)
-data = TimeSeriesDataFrame.from_data_frame(data_df)
+data = TimeSeriesDataFrame.from_path(data_csv_url)
+# data = TimeSeriesDataFrame.from_data_frame(data_df)
 print("data shape", data.shape)
 print(data.head())
+print("number of unique time series:", data.index.get_level_values("item_id").nunique())
 
 # %% [markdown] id="nG2bniu5WwQH"
 # Next, we create the [TimeSeriesPredictor](https://auto.gluon.ai/stable/api/autogluon.timeseries.TimeSeriesPredictor.html) and select the `"chronos2"` presets to use the Chronos-2 (120M) model in zero-shot mode.
@@ -107,12 +107,16 @@ num_test_windows = 3
 prediction_length = 48
 train_data, test_data = data.train_test_split(num_test_windows * prediction_length)
 print("shape of train data: ", train_data.shape)
-print("shape of test data: ", test_data.shape)
+print(
+    "shape of test data (train length + num_test_windows * prediction_length"
+    " * number of time series): ",
+    test_data.shape,
+)
 
 # %%
 predictor = TimeSeriesPredictor(prediction_length=prediction_length).fit(
     train_data,
-    # presets="chronos2",
+    presets="chronos2",
     # presets="best_quality",
 )
 
@@ -132,8 +136,8 @@ predictions.head()
 # %%
 import matplotlib.pyplot as plt
 
-# Plot predictions for the first two time series
-item_ids = test_data.item_ids[:2].tolist()
+# Plot predictions for all the time series
+item_ids = test_data.item_ids.tolist()
 predictor.plot(test_data, predictions, max_history_length=300, item_ids=item_ids)
 plt.show()
 
@@ -152,15 +156,15 @@ predictions_per_window = predictor.backtest_predictions(
     test_data, num_val_windows=num_test_windows
 )
 
-# Plot predictions for the first two time series
-item_ids = test_data.item_ids[:2].tolist()
+# Plot predictions for all time series
+item_ids = test_data.item_ids.tolist()
 all_predictions = pd.concat(predictions_per_window)
 predictor.plot(test_data, all_predictions, max_history_length=300, item_ids=item_ids)
 
 # Optional: Plot the cutoff dates with dashed vertical lines
 for cutoff in range(-num_test_windows * prediction_length, 0, prediction_length):
-    for i, ax in enumerate(plt.gcf().axes):
-        cutoff_timestamp = test_data.loc[item_ids[i]].index[cutoff]
+    for i, (ax, item_id) in enumerate(zip(plt.gcf().axes, item_ids)):
+        cutoff_timestamp = test_data.loc[item_id].index[cutoff]
         ax.axvline(cutoff_timestamp, color="gray", linestyle="--")
 plt.show()
 
@@ -177,7 +181,8 @@ data = TimeSeriesDataFrame.from_path(
     "https://autogluon.s3.amazonaws.com/datasets/timeseries/bull/test.parquet",
     id_column="id",
 )
-data.head()
+print(data.head())
+print("number of unique time series:", data.index.get_level_values("item_id").nunique())
 
 # %% [markdown] id="ASueiy-ZWwQK"
 # The goal is to forecast next day's (24 hours) load using historical load and known weather covariates: air temperature, dew temperature and sea level pressure. Since future weather information is not known in advance, weather forecasts are typically used as known covariates.
@@ -185,6 +190,8 @@ data.head()
 # %% id="YBP7frWNWwQL" outputId="0ef5607d-aecd-4394-d5b2-4331e43d8c0d"
 prediction_length = 24
 train_data, test_data = data.train_test_split(prediction_length=prediction_length)
+print("shape of train data: ", train_data.shape)
+print("shape of test data: ", test_data.shape)
 
 # %% [markdown] id="J1SF46hRWwQL"
 # The following code uses Chronos-2 in the TimeSeriesPredictor to forecast the `load` for the next 24 hours. We use the _univariate_ [Chronos-Bolt (Small)](https://huggingface.co/autogluon/chronos-bolt-small) model as a baseline for comparison.
