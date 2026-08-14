@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: tsf-fm
+#     display_name: autogluon
 #     language: python
 #     name: python3
 # ---
@@ -90,10 +90,9 @@ from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor
 
 # %% id="E6Z0NGjBWwQG" outputId="4bc73bfb-218d-4b75-f7cb-3a089fc88465"
 data_csv_url = "https://autogluon.s3.amazonaws.com/datasets/timeseries/australian_electricity_subset/test.csv"
+data = TimeSeriesDataFrame.from_path(data_csv_url)
 # data_df = pd.read_csv(data_csv_url)
 # print(data_df.head())
-
-data = TimeSeriesDataFrame.from_path(data_csv_url)
 # data = TimeSeriesDataFrame.from_data_frame(data_df)
 print("data shape", data.shape)
 print(data.head())
