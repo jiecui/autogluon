@@ -42,6 +42,7 @@
 # use only one GPU if there are multiple GPUs available, to avoid OOM issues
 import os
 
+# choose GPU # for this run, you can change the number to select a different GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 # %% [markdown] id="xV7UtCFgWwQE"
@@ -94,9 +95,10 @@ data = TimeSeriesDataFrame.from_path(data_csv_url)
 # data_df = pd.read_csv(data_csv_url)
 # print(data_df.head())
 # data = TimeSeriesDataFrame.from_data_frame(data_df)
+num_time_series = data.index.get_level_values("item_id").nunique()
 print("data shape", data.shape)
 print(data.head())
-print("number of unique time series:", data.index.get_level_values("item_id").nunique())
+print("number of unique time series:", num_time_series)
 
 # %% [markdown] id="nG2bniu5WwQH"
 # Next, we create the [TimeSeriesPredictor](https://auto.gluon.ai/stable/api/autogluon.timeseries.TimeSeriesPredictor.html) and select the `"chronos2"` presets to use the Chronos-2 (120M) model in zero-shot mode.
@@ -105,7 +107,9 @@ print("number of unique time series:", data.index.get_level_values("item_id").nu
 num_test_windows = 3
 prediction_length = 48
 train_data, test_data = data.train_test_split(num_test_windows * prediction_length)
-print("shape of train data: ", train_data.shape)
+print("length of train data: ", train_data.shape[0])
+print(f"num_test_windows * prediction_length * number of time series: "
+      f"{num_test_windows * prediction_length * num_time_series}")
 print(
     "shape of test data (train length + num_test_windows * prediction_length"
     " * number of time series): ",
@@ -180,8 +184,10 @@ data = TimeSeriesDataFrame.from_path(
     "https://autogluon.s3.amazonaws.com/datasets/timeseries/bull/test.parquet",
     id_column="id",
 )
+num_time_series = data.index.get_level_values("item_id").nunique()
+print("data shape", data.shape)
 print(data.head())
-print("number of unique time series:", data.index.get_level_values("item_id").nunique())
+print("number of unique time series:", num_time_series)
 
 # %% [markdown] id="ASueiy-ZWwQK"
 # The goal is to forecast next day's (24 hours) load using historical load and known weather covariates: air temperature, dew temperature and sea level pressure. Since future weather information is not known in advance, weather forecasts are typically used as known covariates.
